@@ -3,8 +3,8 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables FIRST
 dotenv.config();
@@ -14,6 +14,7 @@ console.log('🔍 Environment check:');
 console.log('API Key loaded:', !!process.env.XATA_API_KEY);
 console.log('Database URL loaded:', !!process.env.XATA_DATABASE_URL);
 console.log('Google Client ID loaded:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('JWT Secret loaded:', !!process.env.JWT_SECRET);
 console.log('Port:', process.env.PORT || 3000);
 
 // Now import and initialize Xata client after env vars are loaded
@@ -56,44 +57,52 @@ app.use(cors({
   credentials: true
 }));
 
-// Session configuration
-const PgSession = connectPgSimple(session);
+// JWT middleware for parsing tokens
+const authenticateToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  
+  console.log('🔍 JWT middleware - Token present:', !!token);
+  
+  if (!token) {
+    req.isAuthenticated = () => false;
+    req.user = null;
+    return next();
+  }
 
-// Configure session store based on environment
-let sessionStore;
-if (process.env.NODE_ENV === 'production' && process.env.XATA_DATABASE_URL) {
   try {
-    // For now, use memory store in production due to Xata connection issues
-    // TODO: Set up a proper Redis or MongoDB session store for production scaling
-    console.log('⚠️  Using memory store in production (temporary)');
-    sessionStore = new session.MemoryStore();
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key-here';
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    console.log('✅ JWT verified for user:', decoded.userId);
+    
+    // Set user info on request object
+    req.user = decoded.user;
+    req.isAuthenticated = () => true;
+    next();
   } catch (error) {
-    console.error('❌ Failed to initialize session store:', error);
-    console.log('🔄 Falling back to memory store');
-    sessionStore = new session.MemoryStore();
+    console.log('❌ JWT verification failed:', error.message);
+    
+    // Clear invalid token
+    res.clearCookie('token');
+    req.isAuthenticated = () => false;
+    req.user = null;
+    next();
   }
-} else {
-  // Use memory store in development
-  sessionStore = new session.MemoryStore();
-  console.log('📝 Using memory session store');
-}
+};
 
-app.use(session({
-  store: sessionStore,
-  secret: process.env.SESSION_SECRET || 'your-super-secret-session-key-here',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax' // Use 'lax' for better OAuth compatibility
+// Cookie parser middleware (required for JWT tokens)
+app.use(cookieParser());
+
+// Apply JWT middleware to all routes
+app.use(authenticateToken);
+
+// Middleware to require authentication for protected routes
+const requireAuth = (req, res, next) => {
+  if (!req.isAuthenticated() || !req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
-}));
-
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
+  next();
+};
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

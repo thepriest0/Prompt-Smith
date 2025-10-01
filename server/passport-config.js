@@ -52,29 +52,7 @@ passport.use(new GoogleStrategy({
   }
 }));
 
-// Serialize user for session
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-// Deserialize user from session
-passport.deserializeUser(async (id, done) => {
-  try {
-    const xata = getXataClient();
-    const user = await xata.db.users.read(id);
-    
-    if (user) {
-      done(null, {
-        id: user.id,
-        email: user.email,
-        name: user.name
-      });
-    } else {
-      done(null, false);
-    }
-  } catch (error) {
-    done(error, null);
-  }
-});
+// Note: With JWT tokens, we no longer need session serialization/deserialization
+// The user data is stored in the JWT token itself
 
 export default passport;

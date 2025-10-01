@@ -1,6 +1,7 @@
 import express from 'express';
 import passport from '../passport-config.js';
 import { getXataClient } from '../database-init.js';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -26,14 +27,41 @@ router.get('/google/callback',
   },
   (req, res) => {
     try {
-      console.log('🔍 OAuth callback - Session details:');
-      console.log('🔍 Session ID:', req.sessionID);
-      console.log('🔍 Session object:', req.session);
-      console.log('🔍 Is authenticated:', req.isAuthenticated());
-      console.log('🔍 User object:', req.user);
+      console.log('🔍 OAuth callback - User authenticated:', req.user);
+      
+      if (!req.user) {
+        console.error('❌ No user data received from OAuth');
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        return res.redirect(`${frontendUrl}/?error=no_user_data`);
+      }
+      
+      // Create JWT token
+      const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key-here';
+      const tokenPayload = {
+        userId: req.user.id,
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          name: req.user.name
+        }
+      };
+      
+      const token = jwt.sign(tokenPayload, JWT_SECRET, { 
+        expiresIn: '24h' 
+      });
+      
+      console.log('✅ JWT token created for user:', req.user.email);
+      
+      // Set JWT token as httpOnly cookie
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+      });
       
       // Successful authentication, redirect to frontend with a special flag
-      // This helps the frontend know to clean up the browser history
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       console.log('✅ OAuth success, redirecting to:', `${frontendUrl}/?auth=success`);
       res.redirect(`${frontendUrl}/?auth=success`);
@@ -45,15 +73,14 @@ router.get('/google/callback',
   }
 );
 
-// Get current user (for session-based auth)
+// Get current user (for JWT-based auth)
 router.get('/me', (req, res) => {
   console.log('🔍 Auth check requested');
-  console.log('🔍 Session ID:', req.sessionID);
-  console.log('🔍 Session:', req.session);
+  console.log('🔍 Token present:', !!req.cookies?.token);
   console.log('🔍 Is authenticated:', req.isAuthenticated());
   console.log('🔍 User:', req.user);
   
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated() && req.user) {
     console.log('✅ User is authenticated:', req.user.email);
     res.json({ user: req.user });
   } else {
@@ -64,12 +91,17 @@ router.get('/me', (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to logout' });
-    }
-    res.json({ message: 'Logout successful' });
+  console.log('🔍 Logout requested for user:', req.user?.email);
+  
+  // Clear JWT token cookie
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   });
+  
+  console.log('✅ JWT token cleared, user logged out');
+  res.json({ message: 'Logout successful' });
 });
 
 export default router;
