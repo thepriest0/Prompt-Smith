@@ -28,3 +28,6 @@ dist-ssr
 
 
 .env
+.env.render
+.env.example 
+
