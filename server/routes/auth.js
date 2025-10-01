@@ -26,6 +26,12 @@ router.get('/google/callback',
   },
   (req, res) => {
     try {
+      console.log('🔍 OAuth callback - Session details:');
+      console.log('🔍 Session ID:', req.sessionID);
+      console.log('🔍 Session object:', req.session);
+      console.log('🔍 Is authenticated:', req.isAuthenticated());
+      console.log('🔍 User object:', req.user);
+      
       // Successful authentication, redirect to frontend with a special flag
       // This helps the frontend know to clean up the browser history
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -41,9 +47,17 @@ router.get('/google/callback',
 
 // Get current user (for session-based auth)
 router.get('/me', (req, res) => {
+  console.log('🔍 Auth check requested');
+  console.log('🔍 Session ID:', req.sessionID);
+  console.log('🔍 Session:', req.session);
+  console.log('🔍 Is authenticated:', req.isAuthenticated());
+  console.log('🔍 User:', req.user);
+  
   if (req.isAuthenticated()) {
+    console.log('✅ User is authenticated:', req.user.email);
     res.json({ user: req.user });
   } else {
+    console.log('❌ User not authenticated');
     res.status(401).json({ error: 'Not authenticated' });
   }
 });
