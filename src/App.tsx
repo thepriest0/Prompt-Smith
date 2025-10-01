@@ -110,14 +110,27 @@ const AppContent: React.FC = () => {
     }
   }, [selectedMode]);
 
-  // Clean up auth success parameter from URL
+  // Handle OAuth success and clean up auth parameter from URL
   React.useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.has('auth')) {
+    const authSuccess = url.searchParams.get('auth');
+    
+    if (authSuccess === 'success') {
+      console.log('🎉 OAuth success detected, cleaning up URL and redirecting');
+      // Clean up the URL by removing the auth parameter
+      url.searchParams.delete('auth');
+      window.history.replaceState({}, '', url.toString());
+      
+      // If user is authenticated, navigate to mode selection
+      if (user) {
+        navigateTo('modeSelection', null, true);
+      }
+    } else if (url.searchParams.has('auth')) {
+      // Clean up any other auth parameters
       url.searchParams.delete('auth');
       window.history.replaceState({}, '', url.toString());
     }
-  }, []);
+  }, [user, navigateTo]);
 
   // Handle logout and redirect to landing page
   const handleLogout = async () => {
