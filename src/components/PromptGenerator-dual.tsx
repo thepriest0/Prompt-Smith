@@ -225,50 +225,8 @@ const PromptGenerator: React.FC<PromptGeneratorProps> = ({ mode, onGenerate, onB
 
     const result: GeneratedPrompt = {
       prompt: detailedPrompt,
-      primaryTool: {
-        name: recommendedTool,
-        reasoning: 'Recommended based on style and requirements',
-        cost: recommendedTool.includes('ChatGPT') || recommendedTool.includes('Copilot') ? 'Free' : 'Paid',
-        strengths: ['Reliable', 'Good quality', 'Accessible']
-      },
-      alternativeTools: [
-        {
-          name: 'Midjourney',
-          reasoning: 'Higher artistic quality for creative work',
-          cost: 'Paid',
-          strengths: ['Superior quality', 'Artistic excellence']
-        },
-        {
-          name: 'Leonardo AI',
-          reasoning: 'Good alternative with model variety',
-          cost: 'Freemium',
-          strengths: ['Multiple models', 'Fine-tuned options']
-        }
-      ],
-      instructions: {
-        primaryTool: instructions[recommendedTool] || instructions['DALL-E'],
-        alternatives: {
-          'Midjourney': [
-            'Subscribe to Midjourney (midjourney.com)',
-            'Join their Discord server',
-            'Use /imagine command with the prompt',
-            'Specify aspect ratio with --ar parameter',
-            'Upscale and download results'
-          ],
-          'Leonardo AI': [
-            'Create account at Leonardo.ai',
-            'Select appropriate model',
-            'Input the prompt in generation interface',
-            'Set aspect ratio and parameters',
-            'Generate and download results'
-          ]
-        }
-      },
-      tips: [
-        'Try multiple variations for better results',
-        'Experiment with different aspect ratios',
-        'Add style keywords if results don\'t match expectations'
-      ],
+      tool: recommendedTool,
+      instructions: instructions[recommendedTool] || instructions['DALL-E'],
       // Add metadata for saving
       originalDescription: formData.description,
       mode: mode,

@@ -383,42 +383,14 @@ export default function PromptGenerator({ mode, onGenerate, onBack }: PromptGene
       
       // Final fallback in case of any errors
       const fallbackPrompt = `${customPrompt}, ${selectedAspectRatio} aspect ratio`;
+      const recommendedTool = getSmartToolRecommendation(mode, selectedStyles, customPrompt);
+      const instructions = getToolInstructions(recommendedTool, selectedAspectRatio, selectedColors);
       
       console.log('🔧 Using error fallback generation');
       onGenerate({
         prompt: fallbackPrompt,
-        primaryTool: {
-          name: 'ChatGPT with DALL-E 3',
-          reasoning: 'Fallback recommendation - reliable free option',
-          cost: 'Free',
-          strengths: ['Accessible', 'Good quality', 'Easy to use']
-        },
-        alternativeTools: [
-          {
-            name: 'Microsoft Copilot with DALL-E 3',
-            reasoning: 'Alternative free option with same engine',
-            cost: 'Free',
-            strengths: ['Free access', 'Microsoft integration']
-          }
-        ],
-        instructions: {
-          primaryTool: [
-            'Go to ChatGPT (chat.openai.com) - it\'s free!',
-            'Copy the generated prompt above',
-            'Paste it into the chat interface',
-            'Review and refine the generated image',
-            'Download your final result'
-          ],
-          alternatives: {
-            'Microsoft Copilot with DALL-E 3': [
-              'Go to Microsoft Copilot (copilot.microsoft.com)',
-              'Paste the prompt and request image generation',
-              'Review generated options',
-              'Download preferred result'
-            ]
-          }
-        },
-        tips: ['Try variations of the prompt for better results'],
+        tool: recommendedTool,
+        instructions: instructions,
         originalDescription: customPrompt,
         mode: mode,
         style: 'Mixed',
@@ -427,6 +399,133 @@ export default function PromptGenerator({ mode, onGenerate, onBack }: PromptGene
     } finally {
       console.log('🏁 Generation process finished');
       setIsGenerating(false);
+    }
+  };
+
+  const getSmartToolRecommendation = (mode: 'illustration' | 'image', styles: string[], description: string): string => {
+    const desc = description.toLowerCase();
+    const styleSet = new Set(styles);
+    
+    if (mode === 'illustration') {
+      // Technical/isometric to Copilot (FREE)
+      if (styleSet.has('isometric') || desc.includes('technical') || desc.includes('diagram') || desc.includes('blueprint')) {
+        return 'Microsoft Copilot with DALL-E 3';
+      }
+      // Google Whisk for creative remixing and experimental art (FREE!)
+      if (desc.includes('remix') || desc.includes('experimental') || desc.includes('creative blend') || desc.includes('artistic')) {
+        return 'Google Whisk';
+      }
+      // Default to ChatGPT for most illustrations (FREE)
+      return 'ChatGPT with DALL-E 3';
+    } else {
+      // Photography mode - prioritize FREE tools
+      // Google Whisk is excellent for realistic photos (FREE!)
+      if (styleSet.has('photorealistic') || desc.includes('realistic') || desc.includes('professional photo') || desc.includes('portrait')) {
+        return 'Google Whisk';
+      }
+      if (styleSet.has('cinematic') || desc.includes('cinematic') || desc.includes('dramatic') || desc.includes('movie')) {
+        return 'ChatGPT with DALL-E 3';
+      }
+      if (styleSet.has('oil-painting') || styleSet.has('watercolor') || styleSet.has('anime')) {
+        return 'ChatGPT with DALL-E 3';
+      }
+      // Fallback to other free tools
+      return 'Microsoft Copilot with DALL-E 3';
+    }
+  };
+
+  const getToolInstructions = (tool: string, aspectRatio: string, colors: string[]): string[] => {
+    const colorGuidance = colors.length > 0 ? `Include color preferences: ${colors.join(', ')}` : 'Let AI choose appropriate colors';
+    
+    switch (tool) {
+      case 'Google Whisk':
+        return [
+          'Go to Google Whisk (labs.google/whisk) - experimental but powerful!',
+          'Upload reference images or use the prompt input',
+          'Describe your creative vision and remix concept',
+          colorGuidance,
+          'Experiment with different combinations and download results'
+        ];
+
+      case 'Flux (via Replicate or Hugging Face)':
+        return [
+          'Go to Replicate.com and search for "Flux" or use Hugging Face Spaces',
+          'Use the detailed prompt for ultra-realistic results',
+          `Set image dimensions for ${aspectRatio} aspect ratio`,
+          colorGuidance,
+          'Flux excels at photorealistic details - be specific with your prompt'
+        ];
+
+      case 'Leonardo AI':
+        return [
+          'Go to Leonardo.ai - sign up for free credits',
+          'Choose "Image Generation" and select appropriate model',
+          'Paste your prompt and adjust settings for style',
+          `Select ${aspectRatio} aspect ratio from presets`,
+          colorGuidance
+        ];
+
+      case 'Ideogram':
+        return [
+          'Go to Ideogram.ai - excellent for text in images',
+          'Paste your prompt with specific text requirements',
+          'Choose the appropriate style model (realistic, design, etc.)',
+          `Set aspect ratio to ${aspectRatio}`,
+          'Perfect for logos, posters, and text-heavy designs'
+        ];
+
+      case 'Freepik Pikaso':
+        return [
+          'Go to Freepik.com and access Pikaso AI tool',
+          'Use the prompt for professional/commercial style images',
+          'Select business or commercial style presets',
+          colorGuidance,
+          'Great for marketing materials and business graphics'
+        ];
+
+      case 'Midjourney':
+        return [
+          'Go to Discord and join Midjourney server (paid subscription required)',
+          'Use /imagine command followed by your prompt',
+          `Add --ar ${aspectRatio.replace(':', ':')} for aspect ratio`,
+          colorGuidance,
+          'Use --style parameter for specific artistic styles'
+        ];
+
+      case 'Stable Diffusion (ComfyUI)':
+        return [
+          'Access Stable Diffusion via ComfyUI interface or online platforms',
+          'Load appropriate model for your style requirements',
+          'Use the detailed prompt with specific parameters',
+          'Set resolution matching your aspect ratio needs',
+          'Experiment with different samplers and CFG scales'
+        ];
+        
+      case 'ChatGPT with DALL-E 3':
+        return [
+          'Go to ChatGPT (chat.openai.com) - it\'s free with account!',
+          'Paste the prompt and ask DALL-E 3 to generate the image',
+          `Specify "${aspectRatio} aspect ratio" in your request`,
+          colorGuidance,
+          'Download the result and refine with follow-up prompts if needed'
+        ];
+        
+      case 'Microsoft Copilot with DALL-E 3':
+        return [
+          'Go to Microsoft Copilot (copilot.microsoft.com) - it\'s free!',
+          'Paste the prompt and request image generation',
+          `Ask for "${aspectRatio} aspect ratio" in your message`,
+          colorGuidance,
+          'Generate multiple variations and choose the best result'
+        ];
+        
+      default:
+        return [
+          'Copy the prompt to your preferred AI image generator',
+          `Set aspect ratio to ${aspectRatio}`,
+          colorGuidance,
+          'Generate and iterate as needed'
+        ];
     }
   };
 

@@ -7,22 +7,10 @@ export interface PromptGenerationRequest {
   colors?: string[];
 }
 
-export interface AITool {
-  name: string;
-  reasoning: string;
-  cost: string;
-  strengths: string[];
-}
-
 export interface PromptGenerationResponse {
   prompt: string;
-  primaryTool: AITool;
-  alternativeTools: AITool[];
-  instructions: {
-    primaryTool: string[];
-    alternatives: Record<string, string[]>;
-  };
-  tips: string[];
+  tool: string;
+  instructions: string[];
 }
 
 class AIPromptService {

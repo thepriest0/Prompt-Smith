@@ -4,22 +4,10 @@ import { ArrowLeft, Copy, Download, CheckCircle, ExternalLink, Sparkles, Wand2, 
 import { useAuth } from '../hooks/useHooks';
 import { usePrompts } from '../hooks/usePrompts';
 
-export interface AITool {
-  name: string;
-  reasoning: string;
-  cost: string;
-  strengths: string[];
-}
-
 export interface GeneratedPrompt {
   prompt: string;
-  primaryTool: AITool;
-  alternativeTools: AITool[];
-  instructions: {
-    primaryTool: string[];
-    alternatives: Record<string, string[]>;
-  };
-  tips: string[];
+  tool: string;
+  instructions: string[];
   // Add metadata for saving
   originalDescription?: string;
   mode?: 'illustration' | 'image';
@@ -68,7 +56,7 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
         style: result.style || '',
         mood: result.mood || '',
         aspectRatio: result.aspectRatio || '1:1',
-        tool: result.primaryTool.name,
+        tool: result.tool,
         isPublic: false
       });
       
@@ -146,7 +134,7 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
   const handleDownload = () => {
     const content = downloadFormat === 'json' 
       ? JSON.stringify(result, null, 2)
-      : `Generated Prompt:\n\n${result.prompt}\n\nRecommended Tool: ${result.primaryTool.name}\n\nInstructions:\n${result.instructions.primaryTool.map((instruction: string, index: number) => `${index + 1}. ${instruction}`).join('\n')}\n\nAlternative Tools:\n${result.alternativeTools.map(tool => `• ${tool.name} (${tool.cost}): ${tool.reasoning}`).join('\n')}\n\nTips:\n${result.tips.map(tip => `• ${tip}`).join('\n')}`;
+      : `Generated Prompt:\n\n${result.prompt}\n\nRecommended Tool: ${result.tool}\n\nInstructions:\n${result.instructions.map((instruction, index) => `${index + 1}. ${instruction}`).join('\n')}`;
     
     const blob = new Blob([content], { type: downloadFormat === 'json' ? 'application/json' : 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -180,6 +168,8 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
     'Google Whisk': 'Google\'s experimental AI tool for creative image generation.',
     'Whisk': 'Google\'s experimental AI tool for creative image generation.'
   };
+
+  const otherTools = Object.keys(toolLinks).filter(tool => tool !== result.tool);
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -329,14 +319,14 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
                 </div>
                 <div>
                   <h3 className="text-lg sm:text-xl font-bold text-white">
-                    How to use with {result.primaryTool.name}
+                    How to use with {result.tool}
                   </h3>
                   <p className="text-sm text-slate-400">Step-by-step instructions</p>
                 </div>
               </div>
               
               <div className="space-y-4">
-                {result.instructions.primaryTool.map((instruction: string, index: number) => (
+                {result.instructions.map((instruction, index) => (
                   <div key={index} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-800 rounded-lg border border-slate-700">
                     <div className="w-7 sm:w-8 h-7 sm:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
                       {index + 1}
@@ -383,24 +373,24 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
               </div>
               
               <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-4">
-                <h4 className="text-xl font-bold mb-2 text-white">{result.primaryTool.name}</h4>
+                <h4 className="text-xl font-bold mb-2 text-white">{result.tool}</h4>
                 <p className="text-slate-300 text-sm mb-4 leading-relaxed">
-                  {toolDescriptions[result.primaryTool.name] || result.primaryTool.reasoning}
+                  {toolDescriptions[result.tool] || 'Professional AI image generation tool.'}
                 </p>
                 
                 <a
-                  href={toolLinks[result.primaryTool.name] || '#'}
+                  href={toolLinks[result.tool] || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors duration-200"
                 >
-                  Launch {result.primaryTool.name}
+                  Launch {result.tool}
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
               
               <div className="text-xs text-slate-400 bg-slate-800 p-3 rounded-lg border border-slate-700">
-                💡 {result.primaryTool.reasoning}
+                💡 Selected based on your style and requirements
               </div>
             </div>
 
@@ -417,12 +407,12 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
               </div>
               
               <div className="space-y-3">
-                {result.alternativeTools.slice(0, 3).map((tool, index) => (
-                  <div key={index} className="border border-slate-700 rounded-lg p-4 hover:border-slate-600 hover:bg-slate-800 transition-colors duration-200">
+                {otherTools.slice(0, 3).map((tool) => (
+                  <div key={tool} className="border border-slate-700 rounded-lg p-4 hover:border-slate-600 hover:bg-slate-800 transition-colors duration-200">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-white">{tool.name}</h4>
+                      <h4 className="font-medium text-white">{tool}</h4>
                       <a
-                        href={toolLinks[tool.name] || '#'}
+                        href={toolLinks[tool]}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-slate-400 hover:text-white transition-colors duration-200"
@@ -430,24 +420,9 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
                         <ExternalLink className="w-4 h-4" />
                       </a>
                     </div>
-                    <p className="text-sm text-slate-400 leading-relaxed mb-2">
-                      {tool.reasoning}
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      {toolDescriptions[tool] || 'Alternative AI image generation tool.'}
                     </p>
-                    <div className="text-xs text-slate-500">
-                      Cost: {tool.cost}
-                    </div>
-                    {tool.strengths && tool.strengths.length > 0 && (
-                      <div className="mt-2">
-                        <div className="text-xs text-slate-500 mb-1">Strengths:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {tool.strengths.map((strength, strengthIndex) => (
-                            <span key={strengthIndex} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">
-                              {strength}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -471,16 +446,33 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ result, onBack }) => {
               </div>
               
               <div className="space-y-4 text-sm">
-                {result.tips.map((tip, index) => (
-                  <div key={index} className="flex gap-3">
-                    <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <div className="w-2 h-2 bg-white rounded-full"></div>
-                    </div>
-                    <div>
-                      <div className="text-slate-300 leading-relaxed">{tip}</div>
-                    </div>
+                <div className="flex gap-3">
+                  <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
                   </div>
-                ))}
+                  <div>
+                    <div className="font-medium text-white">Iterate & refine</div>
+                    <div className="text-slate-400">Try variations by modifying the prompt.</div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">Save templates</div>
+                    <div className="text-slate-400">Keep successful prompts for future use.</div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-5 h-5 bg-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">Experiment settings</div>
+                    <div className="text-slate-400">Adjust tool settings for different styles.</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
