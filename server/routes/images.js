@@ -79,13 +79,14 @@ async function analyzeWithGoogleVision(imageUrl) {
     const requests = [{
       image: { source: { imageUri: imageUrl } },
       features: [
-        { type: 'LABEL_DETECTION', maxResults: 15 }, // Increased for more labels
+        { type: 'LABEL_DETECTION', maxResults: 25 }, // Increased for more labels
         { type: 'IMAGE_PROPERTIES' },
-        { type: 'OBJECT_LOCALIZATION', maxResults: 15 }, // Increased for more objects
+        { type: 'OBJECT_LOCALIZATION', maxResults: 20 }, // Increased for more objects
         { type: 'SAFE_SEARCH_DETECTION' },
-        { type: 'TEXT_DETECTION' }, // Detect any text in image
-        { type: 'FACE_DETECTION' }, // Detect faces for better people description
-        { type: 'LANDMARK_DETECTION' } // Detect famous landmarks
+        { type: 'TEXT_DETECTION', maxResults: 5 }, // Detect any text in image
+        { type: 'FACE_DETECTION', maxResults: 10 }, // Detect faces for better people description
+        { type: 'LANDMARK_DETECTION', maxResults: 5 }, // Detect famous landmarks
+        { type: 'WEB_DETECTION', maxResults: 10 } // Web entity detection for context
       ]
     }];
 
@@ -313,111 +314,187 @@ function generateCaption(labels, objects, style, analysis, extraInfo = {}) {
   const allElements = [...new Set([...objects, ...labels])];
   const { faceCount = 0, hasText = false, landmarks = [] } = extraInfo;
   
-  // Categorize elements for better description
+  // Enhanced categorization with better keyword matching
   const people = allElements.filter(el => 
-    ['person', 'woman', 'man', 'child', 'people', 'human', 'face', 'portrait'].some(p => el.includes(p))
+    ['person', 'woman', 'man', 'child', 'people', 'human', 'face', 'portrait', 'group', 'crowd', 'figure'].some(p => el.includes(p))
+  );
+  
+  const hands = allElements.filter(el =>
+    ['hand', 'finger', 'gesture', 'handshake', 'reach', 'touch', 'palm'].some(h => el.includes(h))
+  );
+  
+  const diversity = allElements.filter(el =>
+    ['diverse', 'diversity', 'multicultural', 'ethnic', 'inclusion', 'inclusive', 'community', 'team', 'collaboration', 'unity', 'together'].some(d => el.includes(d))
   );
   
   const animals = allElements.filter(el =>
-    ['cat', 'dog', 'bird', 'animal', 'pet', 'wildlife', 'creature', 'horse', 'fish', 'butterfly'].some(a => el.includes(a))
+    ['cat', 'dog', 'bird', 'animal', 'pet', 'wildlife', 'creature', 'horse', 'fish', 'butterfly', 'mammal'].some(a => el.includes(a))
   );
   
   const settings = allElements.filter(el =>
-    ['building', 'house', 'room', 'outdoor', 'indoor', 'landscape', 'forest', 'city', 'street', 'nature', 'sky', 'water', 'mountain', 'garden', 'park', 'beach', 'office', 'interior', 'exterior'].some(s => el.includes(s))
+    ['building', 'house', 'room', 'outdoor', 'indoor', 'landscape', 'forest', 'city', 'street', 'nature', 'sky', 'water', 'mountain', 'garden', 'park', 'beach', 'office', 'interior', 'exterior', 'background'].some(s => el.includes(s))
   );
   
   const colors = allElements.filter(el =>
-    ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'orange', 'black', 'white', 'colorful', 'bright', 'dark', 'vibrant'].some(c => el.includes(c))
+    ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'orange', 'black', 'white', 'colorful', 'bright', 'dark', 'vibrant', 'multicolor'].some(c => el.includes(c))
   );
   
   const artElements = allElements.filter(el =>
-    ['illustration', 'drawing', 'painting', 'art', 'design', 'graphic', 'pattern', 'texture', 'abstract', 'creative', 'artistic'].some(a => el.includes(a))
+    ['illustration', 'drawing', 'painting', 'art', 'design', 'graphic', 'pattern', 'texture', 'abstract', 'creative', 'artistic', 'vector', 'flat', 'modern'].some(a => el.includes(a))
+  );
+  
+  const emotions = allElements.filter(el =>
+    ['happy', 'joy', 'smile', 'cheerful', 'positive', 'optimistic', 'friendly', 'warm', 'welcoming', 'peaceful'].some(e => el.includes(e))
   );
   
   const objects_items = allElements.filter(el =>
-    !people.includes(el) && !animals.includes(el) && !settings.includes(el) && 
-    !colors.includes(el) && !artElements.includes(el) &&
-    !['image', 'photo', 'picture', 'file', 'visual'].includes(el)
+    !people.includes(el) && !hands.includes(el) && !diversity.includes(el) && !animals.includes(el) && 
+    !settings.includes(el) && !colors.includes(el) && !artElements.includes(el) && !emotions.includes(el) &&
+    !['image', 'photo', 'picture', 'file', 'visual', 'clip art', 'graphics'].includes(el)
   );
   
-  // Build comprehensive description
+  // Determine if this is a group/community scene
+  const isGroupScene = faceCount > 1 || people.length > 1 || diversity.length > 0;
+  const hasHandGestures = hands.length > 0;
+  const isCollaborativeTheme = diversity.length > 0 || hands.length > 0 || 
+    allElements.some(el => ['team', 'together', 'unity', 'collaboration', 'community'].some(t => el.includes(t)));
+  
+  // Build comprehensive description with proper narrative flow
   let description = `This is a ${style.toLowerCase()}`;
   
   // Add landmark information first if present
   if (landmarks.length > 0) {
-    description += ` showcasing ${landmarks[0]}`;
+    description += ` showcasing the iconic ${landmarks[0]}`;
   }
   
-  // Add main subjects with face count specificity
-  if (faceCount > 0) {
-    if (faceCount === 1) {
-      description += description.includes('showcasing') ? ' featuring a person' : ' featuring a single person';
-    } else {
-      description += description.includes('showcasing') ? ` featuring ${faceCount} people` : ` featuring a group of ${faceCount} people`;
+  // Main subject description with specificity
+  if (isGroupScene) {
+    if (faceCount > 0) {
+      if (faceCount === 2) {
+        description += ` featuring two people`;
+      } else if (faceCount > 2) {
+        description += ` featuring a ${diversity.length > 0 ? 'diverse ' : ''}group of ${faceCount} people`;
+        if (diversity.length > 0) {
+          description += ` from different ethnic backgrounds`;
+        }
+      }
+    } else if (people.length > 1) {
+      description += ` featuring multiple characters`;
+      if (diversity.length > 0) {
+        description += ` representing diversity and inclusion`;
+      }
     }
-  } else if (people.length > 0) {
-    const peopleDesc = people.slice(0, 2).join(' and ');
-    description += description.includes('showcasing') ? ` with ${peopleDesc}` : ` featuring ${peopleDesc}`;
+    
+    // Add collaborative elements
+    if (isCollaborativeTheme) {
+      if (hasHandGestures) {
+        description += ` engaged in a collaborative gesture`;
+      } else {
+        description += ` in a unified, collaborative scene`;
+      }
+    }
+  } else if (faceCount === 1 || people.length > 0) {
+    description += ` featuring a single person`;
   } else if (animals.length > 0) {
     const animalDesc = animals.slice(0, 2).join(' and ');
-    description += description.includes('showcasing') ? ` with ${animalDesc}` : ` showcasing ${animalDesc}`;
+    description += ` showcasing ${animalDesc}`;
   } else if (objects_items.length > 0) {
     const objectDesc = objects_items.slice(0, 2).join(' and ');
-    description += description.includes('showcasing') ? ` with ${objectDesc}` : ` depicting ${objectDesc}`;
+    description += ` depicting ${objectDesc}`;
   }
   
-  // Add setting/environment
-  if (settings.length > 0) {
-    const settingDesc = settings.slice(0, 2).join(' and ');
-    if (description.includes('featuring') || description.includes('showcasing') || description.includes('depicting')) {
-      description += ` set in ${settingDesc}`;
-    } else {
-      description += ` taking place in ${settingDesc}`;
+  // Add specific gesture/action details
+  if (hasHandGestures && isGroupScene) {
+    description += `. The composition centers on multiple hands reaching toward each other`;
+    if (diversity.length > 0) {
+      description += ` of varying skin tones`;
+    }
+    description += `, symbolizing teamwork and unity`;
+  }
+  
+  // Add arrangement and composition details
+  if (isGroupScene) {
+    if (allElements.some(el => el.includes('circle') || el.includes('around'))) {
+      description += `. The characters are arranged in a circular formation around this central focal point`;
+    } else if (faceCount > 2) {
+      description += `. The figures are thoughtfully positioned to create visual balance`;
     }
   }
   
-  // Add text information
-  if (hasText) {
-    description += `. The image includes text elements or typography`;
+  // Add clothing and visual details for group scenes
+  if (isGroupScene && (colors.length > 1 || allElements.some(el => el.includes('clothing') || el.includes('shirt')))) {
+    description += `, each wearing distinct colored clothing`;
+    if (colors.length >= 3) {
+      const colorList = colors.slice(0, 4).join(', ');
+      description += ` including ${colorList} garments`;
+    }
   }
   
-  // Add color information with more detail
-  if (colors.length > 0) {
-    const colorDesc = colors.slice(0, 3).join(', ');
-    description += `. The composition features ${colorDesc} color scheme`;
-  }
-  
-  // Add additional objects/elements
-  if (objects_items.length > 2) {
-    const additionalItems = objects_items.slice(2, 5).join(', ');
-    description += `, incorporating additional elements such as ${additionalItems}`;
-  }
-  
-  // Add artistic qualities with more detail
-  if (artElements.length > 0) {
-    const artDesc = artElements.slice(0, 3).join(' and ');
-    description += `. The artwork demonstrates ${artDesc} characteristics`;
-  }
-  
-  // Get color palette info for richer description
-  if (analysis?.imagePropertiesAnnotation?.dominantColors?.colors) {
-    const dominantColor = analysis.imagePropertiesAnnotation.dominantColors.colors[0];
-    if (dominantColor && dominantColor.color) {
-      const { red = 0, green = 0, blue = 0 } = dominantColor.color;
-      const colorName = getColorName(red, green, blue);
-      if (!description.includes('color')) {
-        description += `, with a dominant ${colorName} color palette`;
+  // Add setting/environment with more detail
+  if (settings.length > 0) {
+    const settingDesc = settings.slice(0, 2).join(' and ');
+    description += `. The artwork uses ${settingDesc}`;
+    
+    // Add background color information from analysis
+    if (analysis?.imagePropertiesAnnotation?.dominantColors?.colors) {
+      const dominantColor = analysis.imagePropertiesAnnotation.dominantColors.colors[0];
+      if (dominantColor && dominantColor.color) {
+        const { red = 0, green = 0, blue = 0 } = dominantColor.color;
+        const colorName = getColorName(red, green, blue);
+        description += ` with a ${colorName} background`;
       }
     }
   }
   
-  // Add style-specific details
-  if (style.toLowerCase().includes('portrait') && faceCount > 0) {
-    description += `. The portrait composition focuses on facial features and expression`;
+  // Enhanced color analysis
+  if (colors.length > 1) {
+    description += `. The composition features a vibrant color palette`;
+    if (analysis?.imagePropertiesAnnotation?.dominantColors?.colors?.length > 1) {
+      description += ` that contrasts beautifully with the varied, warm colors of the subjects`;
+    }
+  } else if (colors.length === 1) {
+    description += `. The image emphasizes ${colors[0]} tones throughout the composition`;
   }
   
-  if (style.toLowerCase().includes('landscape') || settings.some(s => s.includes('nature'))) {
-    description += `. The landscape composition emphasizes environmental elements and spatial depth`;
+  // Add text information with context
+  if (hasText) {
+    description += `. The design incorporates text elements or typography as part of the visual communication`;
+  }
+  
+  // Enhanced artistic style description
+  if (artElements.length > 0) {
+    const artDesc = artElements.slice(0, 3).join(' and ');
+    description += `. The illustration style is ${artDesc}`;
+    
+    if (isGroupScene && diversity.length > 0) {
+      description += `, with clean geometric shapes and simplified features typical of modern diversity and inclusion artwork`;
+    } else if (artElements.some(el => el.includes('flat') || el.includes('vector'))) {
+      description += `, with clean lines and simplified geometric forms`;
+    }
+  }
+  
+  // Add emotional and thematic context
+  if (emotions.length > 0 || isCollaborativeTheme) {
+    const mood = emotions.length > 0 ? emotions[0] : 'positive';
+    description += `. The overall mood is ${mood} and ${isCollaborativeTheme ? 'collaborative' : 'engaging'}`;
+    
+    if (isCollaborativeTheme) {
+      description += `, emphasizing ${diversity.length > 0 ? 'community collaboration and human connection' : 'teamwork and unity'}`;
+    }
+  }
+  
+  // Add composition and visual flow analysis
+  if (hasHandGestures || isGroupScene) {
+    description += `. The visual composition draws the eye to the central ${hasHandGestures ? 'hand gesture' : 'focal point'}`;
+    if (isGroupScene) {
+      description += ` while maintaining balance through the ${faceCount > 3 ? 'circular arrangement of figures' : 'thoughtful positioning of characters'}`;
+    }
+  }
+  
+  // Add additional contextual objects if relevant
+  if (objects_items.length > 0 && !hasHandGestures) {
+    const additionalItems = objects_items.slice(0, 3).join(', ');
+    description += `, incorporating elements such as ${additionalItems}`;
   }
   
   // Ensure proper ending
@@ -425,26 +502,121 @@ function generateCaption(labels, objects, style, analysis, extraInfo = {}) {
     description += '.';
   }
   
-  // Fallback for minimal data
-  if (description.length < 80) {
-    description = `This ${style.toLowerCase()} presents a carefully composed visual artwork featuring ${allElements.slice(0, 4).join(', ')}. The image demonstrates professional artistic technique with attention to visual balance, color harmony, and aesthetic appeal. The composition suggests thoughtful creative direction and skilled execution.`;
+  // Enhanced fallback for minimal data
+  if (description.length < 100) {
+    if (isGroupScene) {
+      description = `This ${style.toLowerCase()} presents a thoughtfully composed scene featuring multiple characters in a collaborative arrangement. The artwork demonstrates professional illustration technique with attention to diversity, visual balance, and community themes. The composition uses vibrant colors and modern design principles to create an engaging, inclusive visual narrative that emphasizes human connection and teamwork.`;
+    } else {
+      description = `This ${style.toLowerCase()} presents a carefully composed visual artwork featuring ${allElements.slice(0, 4).join(', ')}. The image demonstrates professional artistic technique with attention to visual balance, color harmony, and aesthetic appeal. The composition suggests thoughtful creative direction and skilled execution with modern design sensibilities.`;
+    }
   }
   
   return description;
 }
 
 function getColorName(red, green, blue) {
-  // Simple color name mapping based on RGB values
-  if (red > 200 && green < 100 && blue < 100) return 'red';
-  if (red < 100 && green > 200 && blue < 100) return 'green';
-  if (red < 100 && green < 100 && blue > 200) return 'blue';
-  if (red > 200 && green > 200 && blue < 100) return 'yellow';
-  if (red > 200 && green < 100 && blue > 200) return 'purple';
-  if (red > 200 && green > 150 && blue < 100) return 'orange';
-  if (red > 200 && green > 200 && blue > 200) return 'light';
-  if (red < 50 && green < 50 && blue < 50) return 'dark';
-  if (red > 150 && green > 150 && blue > 150) return 'neutral';
-  return 'colorful';
+  // Enhanced color classification with more nuanced ranges
+  const colorMappings = [
+    // Basic colors with tighter ranges
+    { range: [220, 20, 60], threshold: 60, name: 'crimson' },
+    { range: [255, 0, 0], threshold: 50, name: 'red' },
+    { range: [255, 165, 0], threshold: 50, name: 'orange' },
+    { range: [255, 255, 0], threshold: 50, name: 'yellow' },
+    { range: [0, 255, 0], threshold: 50, name: 'lime green' },
+    { range: [0, 128, 0], threshold: 50, name: 'green' },
+    { range: [0, 255, 255], threshold: 50, name: 'cyan' },
+    { range: [0, 191, 255], threshold: 50, name: 'deep sky blue' },
+    { range: [0, 0, 255], threshold: 50, name: 'blue' },
+    { range: [75, 0, 130], threshold: 50, name: 'indigo' },
+    { range: [128, 0, 128], threshold: 50, name: 'purple' },
+    { range: [255, 192, 203], threshold: 60, name: 'pink' },
+    { range: [255, 20, 147], threshold: 60, name: 'deep pink' },
+    { range: [199, 21, 133], threshold: 60, name: 'medium violet red' },
+    // Neutral colors
+    { range: [255, 255, 255], threshold: 30, name: 'white' },
+    { range: [220, 220, 220], threshold: 30, name: 'light gray' },
+    { range: [128, 128, 128], threshold: 30, name: 'gray' },
+    { range: [64, 64, 64], threshold: 30, name: 'dark gray' },
+    { range: [0, 0, 0], threshold: 30, name: 'black' },
+    // Earth tones
+    { range: [139, 69, 19], threshold: 50, name: 'saddle brown' },
+    { range: [160, 82, 45], threshold: 50, name: 'sienna' },
+    { range: [210, 180, 140], threshold: 50, name: 'tan' },
+    { range: [245, 245, 220], threshold: 40, name: 'beige' },
+    // Pastels
+    { range: [230, 230, 250], threshold: 40, name: 'lavender' },
+    { range: [255, 240, 245], threshold: 40, name: 'lavender blush' },
+    { range: [240, 248, 255], threshold: 40, name: 'alice blue' },
+    { range: [255, 248, 220], threshold: 40, name: 'cornsilk' }
+  ];
+
+  let closestMatch = { name: 'neutral', distance: Infinity };
+  
+  for (const color of colorMappings) {
+    const distance = Math.sqrt(
+      Math.pow(red - color.range[0], 2) +
+      Math.pow(green - color.range[1], 2) +
+      Math.pow(blue - color.range[2], 2)
+    );
+    
+    if (distance < color.threshold && distance < closestMatch.distance) {
+      closestMatch = { name: color.name, distance };
+    }
+  }
+  
+  // Advanced color analysis for more accurate naming
+  if (closestMatch.name === 'neutral') {
+    // Brightness analysis
+    const brightness = (red + green + blue) / 3;
+    const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+    
+    if (brightness > 200 && saturation < 30) {
+      return 'light neutral';
+    } else if (brightness < 80 && saturation < 50) {
+      return 'dark neutral';
+    } else if (saturation > 100) {
+      // Determine dominant hue for saturated colors
+      if (red > green && red > blue) {
+        if (green > blue) return 'warm orange-red';
+        return 'vibrant red';
+      } else if (green > red && green > blue) {
+        if (blue > red) return 'teal green';
+        return 'vibrant green';
+      } else if (blue > red && blue > green) {
+        if (red > green) return 'purple-blue';
+        return 'vibrant blue';
+      }
+    }
+    
+    // HSV analysis for better color detection
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const delta = max - min;
+    
+    if (delta > 0) {
+      let hue = 0;
+      if (max === red) {
+        hue = ((green - blue) / delta) % 6;
+      } else if (max === green) {
+        hue = (blue - red) / delta + 2;
+      } else {
+        hue = (red - green) / delta + 4;
+      }
+      hue *= 60;
+      if (hue < 0) hue += 360;
+      
+      // Convert hue to color name
+      if (hue >= 0 && hue < 30) return 'red-orange';
+      if (hue >= 30 && hue < 60) return 'orange-yellow';
+      if (hue >= 60 && hue < 120) return 'yellow-green';
+      if (hue >= 120 && hue < 180) return 'green-cyan';
+      if (hue >= 180 && hue < 240) return 'cyan-blue';
+      if (hue >= 240 && hue < 300) return 'blue-purple';
+      if (hue >= 300 && hue < 360) return 'purple-red';
+    }
+  }
+  
+  return closestMatch.name;
 }
 
 // Analyze image using AI
