@@ -10,12 +10,21 @@ router.get('/google',
 );
 
 router.get('/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/login' }),
+  passport.authenticate('google', { 
+    failureRedirect: '/login',
+    failureMessage: true 
+  }),
   (req, res) => {
-    // Successful authentication, redirect to frontend with a special flag
-    // This helps the frontend know to clean up the browser history
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/?auth=success`);
+    try {
+      // Successful authentication, redirect to frontend with a special flag
+      // This helps the frontend know to clean up the browser history
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      console.log('✅ OAuth success, redirecting to:', `${frontendUrl}/?auth=success`);
+      res.redirect(`${frontendUrl}/?auth=success`);
+    } catch (error) {
+      console.error('❌ OAuth callback error:', error);
+      res.status(500).json({ error: 'Internal server error', message: 'OAuth callback failed' });
+    }
   }
 );
 

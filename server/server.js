@@ -61,16 +61,24 @@ const PgSession = connectPgSimple(session);
 
 // Configure session store based on environment
 let sessionStore;
-if (process.env.NODE_ENV === 'production') {
-  // Use PostgreSQL session store in production
-  sessionStore = new PgSession({
-    conString: process.env.XATA_DATABASE_URL,
-    tableName: 'session', // Will create this table automatically
-    createTableIfMissing: true
-  });
+if (process.env.NODE_ENV === 'production' && process.env.XATA_DATABASE_URL) {
+  try {
+    // Use PostgreSQL session store in production
+    sessionStore = new PgSession({
+      conString: process.env.XATA_DATABASE_URL,
+      tableName: 'session', // Will create this table automatically
+      createTableIfMissing: true
+    });
+    console.log('✅ Using PostgreSQL session store');
+  } catch (error) {
+    console.error('❌ Failed to initialize PostgreSQL session store:', error);
+    console.log('🔄 Falling back to memory store');
+    sessionStore = new session.MemoryStore();
+  }
 } else {
-  // Use memory store in development (with warning suppression)
+  // Use memory store in development or if no database URL
   sessionStore = new session.MemoryStore();
+  console.log('📝 Using memory session store');
 }
 
 app.use(session({

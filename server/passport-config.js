@@ -11,18 +11,26 @@ passport.use(new GoogleStrategy({
   callbackURL: process.env.GOOGLE_CALLBACK_URL
 }, async (accessToken, refreshToken, profile, done) => {
   try {
+    console.log('🔍 OAuth profile received:', { 
+      id: profile.id, 
+      email: profile.emails?.[0]?.value, 
+      name: profile.displayName 
+    });
+    
     const xata = getXataClient();
     
     // Check if user already exists
     let user = await xata.db.users.filter({ email: profile.emails[0].value }).getFirst();
     
     if (user) {
+      console.log('👤 Existing user found:', user.email);
       // Update last login
       user = await xata.db.users.update(user.id, {
         lastLogin: new Date(),
         name: profile.displayName || user.name
       });
     } else {
+      console.log('➕ Creating new user:', profile.emails[0].value);
       // Create new user
       user = await xata.db.users.create({
         email: profile.emails[0].value,
@@ -32,13 +40,14 @@ passport.use(new GoogleStrategy({
       });
     }
     
+    console.log('✅ User authenticated successfully:', user.email);
     return done(null, {
       id: user.id,
       email: user.email,
       name: user.name
     });
   } catch (error) {
-    console.error('Google OAuth error:', error);
+    console.error('❌ Google OAuth error:', error);
     return done(error, null);
   }
 }));
