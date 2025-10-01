@@ -47,6 +47,7 @@ const AppContent: React.FC = () => {
       console.log('🚨 IMMEDIATE OAuth success detected!');
       console.log('🔍 Current URL:', window.location.href);
       console.log('🔍 Auth param:', authSuccess);
+      console.log('🔍 Current cookies:', document.cookie);
       
       // Clean up URL immediately
       urlParams.delete('auth');
@@ -54,11 +55,42 @@ const AppContent: React.FC = () => {
         (urlParams.toString() ? '?' + urlParams.toString() : '');
       window.history.replaceState({}, '', cleanUrl);
       
-      // Force redirect to mode selection
+      // Store OAuth success flag in localStorage
+      localStorage.setItem('oauth-success', 'true');
+      localStorage.setItem('oauth-timestamp', Date.now().toString());
+      
+      // Try multiple redirect approaches
+      console.log('🚀 Attempting redirects...');
+      
+      // Method 1: Hash navigation
       window.location.hash = '#mode-selection';
+      
+      // Method 2: Hard redirect after delay
       setTimeout(() => {
+        console.log('🚀 Hard redirect to mode-selection');
         window.location.href = window.location.origin + '/mode-selection';
       }, 1000);
+      
+      // Method 3: Force state change
+      setTimeout(() => {
+        console.log('🚀 Force navigate to mode-selection');
+        setCurrentState('modeSelection');
+      }, 500);
+    }
+    
+    // Check for stored OAuth success (in case user refreshes)
+    const storedOAuthSuccess = localStorage.getItem('oauth-success');
+    const oauthTimestamp = localStorage.getItem('oauth-timestamp');
+    if (storedOAuthSuccess && oauthTimestamp) {
+      const timeDiff = Date.now() - parseInt(oauthTimestamp);
+      // If OAuth success was within last 30 seconds, consider it valid
+      if (timeDiff < 30000) {
+        console.log('🔄 Found recent OAuth success in localStorage');
+        setCurrentState('modeSelection');
+        // Clean up localStorage
+        localStorage.removeItem('oauth-success');
+        localStorage.removeItem('oauth-timestamp');
+      }
     }
   }, []);
 

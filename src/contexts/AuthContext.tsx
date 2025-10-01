@@ -34,16 +34,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuthStatus = async () => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      console.log('🔍 Frontend auth check - API URL:', apiUrl);
+      console.log('🔍 Frontend auth check - Full URL:', `${apiUrl}/api/auth/me`);
+      console.log('🔍 Frontend auth check - Current cookies:', document.cookie);
+      
       const response = await fetch(`${apiUrl}/api/auth/me`, {
         credentials: 'include' // Include cookies for session
       });
       
+      console.log('🔍 Frontend auth check - Response status:', response.status);
+      console.log('🔍 Frontend auth check - Response headers:', [...response.headers.entries()]);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Frontend auth check - User authenticated:', data.user);
         setUser(data.user);
+      } else {
+        console.log('❌ Frontend auth check - Not authenticated, status:', response.status);
       }
     } catch (error) {
-      console.log('No active session:', error);
+      console.log('❌ Frontend auth check - Error:', error);
     } finally {
       setIsLoading(false);
     }
