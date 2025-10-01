@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: prompt-smith
+    env: node
+    plan: free
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: prompt-smith
+          property: port
+      # Add your environment variables here (set these in Render dashboard):
+      # - key: GITHUB_TOKEN
+      #   sync: false
+      # - key: GOOGLE_CLIENT_ID
+      #   sync: false
+      # - key: GOOGLE_CLIENT_SECRET
+      #   sync: false
+      # - key: XATA_API_KEY
+      #   sync: false
+      # - key: XATA_DATABASE_URL
+      #   sync: false
+      # - key: CLOUDINARY_CLOUD_NAME
+      #   sync: false
+      # - key: CLOUDINARY_API_KEY
+      #   sync: false
+      # - key: CLOUDINARY_API_SECRET
+      #   sync: false
+      # - key: GOOGLE_VISION_API_KEY
+      #   sync: false
+      # - key: SESSION_SECRET
+      #   sync: false

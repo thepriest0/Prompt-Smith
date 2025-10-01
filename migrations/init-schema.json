@@ -1,0 +1,32 @@
+{
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        { "name": "id", "type": "string", "unique": true },
+        { "name": "email", "type": "string", "unique": true },
+        { "name": "name", "type": "string" },
+        { "name": "avatar_url", "type": "string" },
+        { "name": "created_at", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "prompts",
+      "columns": [
+        { "name": "id", "type": "string", "unique": true },
+        { "name": "user_id", "type": "string" },
+        { "name": "content", "type": "text" },
+        { "name": "created_at", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "favorites",
+      "columns": [
+        { "name": "id", "type": "string", "unique": true },
+        { "name": "user_id", "type": "string" },
+        { "name": "prompt_id", "type": "string" },
+        { "name": "created_at", "type": "datetime" }
+      ]
+    }
+  ]
+}
