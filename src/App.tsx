@@ -12,7 +12,7 @@ type AppState = 'landing' | 'modeSelection' | 'generator' | 'results' | 'myPromp
 export type AppMode = 'illustration' | 'image';
 
 const AppContent: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   
   const [selectedMode, setSelectedMode] = useState<AppMode | null>(null);
   const [generatedResult, setGeneratedResult] = useState<GeneratedPrompt | null>(null);
@@ -112,25 +112,33 @@ const AppContent: React.FC = () => {
 
   // Handle OAuth success and clean up auth parameter from URL
   React.useEffect(() => {
+    // Don't process OAuth redirect while still loading auth status
+    if (isLoading) return;
+    
     const url = new URL(window.location.href);
     const authSuccess = url.searchParams.get('auth');
     
     if (authSuccess === 'success') {
       console.log('🎉 OAuth success detected, cleaning up URL and redirecting');
+      console.log('🔍 User state:', user ? 'authenticated' : 'not authenticated');
+      
       // Clean up the URL by removing the auth parameter
       url.searchParams.delete('auth');
       window.history.replaceState({}, '', url.toString());
       
       // If user is authenticated, navigate to mode selection
       if (user) {
+        console.log('🚀 Redirecting to mode selection');
         navigateTo('modeSelection', null, true);
+      } else {
+        console.log('⚠️ User not authenticated, staying on landing page');
       }
     } else if (url.searchParams.has('auth')) {
       // Clean up any other auth parameters
       url.searchParams.delete('auth');
       window.history.replaceState({}, '', url.toString());
     }
-  }, [user, navigateTo]);
+  }, [user, navigateTo, isLoading]);
 
   // Handle logout and redirect to landing page
   const handleLogout = async () => {
@@ -164,12 +172,17 @@ const AppContent: React.FC = () => {
     navigateTo('modeSelection');
   };
 
-  // If user is logged in, show mode selection by default
+  // If user is logged in, show mode selection by default (but not during OAuth flow)
   React.useEffect(() => {
-    if (user && currentState === 'landing') {
+    // Don't auto-redirect if we're processing an OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const isOAuthCallback = urlParams.has('auth');
+    
+    if (user && currentState === 'landing' && !isOAuthCallback && !isLoading) {
+      console.log('🔄 Auto-redirecting logged-in user to mode selection');
       navigateTo('modeSelection', null, true);
     }
-  }, [user, currentState, navigateTo]);
+  }, [user, currentState, navigateTo, isLoading]);
 
   // If user logs out, redirect to landing page
   React.useEffect(() => {
