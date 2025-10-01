@@ -124,12 +124,16 @@ function processGoogleVisionResponse(analysis) {
   const texts = analysis.textAnnotations || [];
   const landmarks = analysis.landmarkAnnotations || [];
   
-  // Filter out generic/incorrect labels that don't add value
+  // Filter out only the most generic/unhelpful labels, but keep art style descriptors
   const filteredLabels = labels
     .map(label => label.description.toLowerCase())
     .filter(label => 
-      !['clip art', 'graphics', 'animated cartoon', 'animation', 'happiness', 'file', 'visual', 'picture', 'image', 'photo'].includes(label) &&
-      !label.includes('screenshot') &&
+      // Remove only truly unhelpful meta labels
+      !['file', 'visual', 'picture', 'image', 'photo', 'screenshot'].includes(label) &&
+      // Remove overly generic happiness detection (often wrong)
+      !['happiness'].includes(label) &&
+      // Keep specific art styles but remove only the most generic ones
+      !['clip art'].includes(label) && // Too generic
       !label.includes('font') &&
       label.length > 2
     );
@@ -191,27 +195,112 @@ function processGoogleVisionResponse(analysis) {
 }
 
 function determineStyle(labels, hasFaces = false, hasText = false) {
+  // Enhanced style detection with more specific and accurate categorization
   const styleMap = {
-    'illustration': 'Digital illustration',
-    'cartoon': 'Cartoon style',
-    'drawing': 'Hand-drawn style',
-    'painting': 'Artistic painting',
-    'photograph': 'Photographic style',
+    // Digital Art Styles
+    'flat design': 'Flat design illustration',
+    'vector art': 'Vector illustration',
+    'vector': 'Vector illustration',
     'digital art': 'Digital artwork',
-    'vector': 'Vector art',
-    'flat design': 'Flat design',
-    'minimalism': 'Minimalist style',
-    'abstract': 'Abstract art',
-    'realistic': 'Realistic style',
-    'vintage': 'Vintage style',
-    'modern': 'Modern design',
-    'anime': 'Anime style',
-    'manga': 'Manga style',
+    'digital illustration': 'Digital illustration',
+    'modern design': 'Modern design illustration',
+    'minimal': 'Minimalist illustration',
+    'minimalism': 'Minimalist design',
+    'geometric': 'Geometric illustration',
+    
+    // Traditional Art Styles
     'watercolor': 'Watercolor painting',
     'oil painting': 'Oil painting',
-    'sketch': 'Sketch style'
+    'acrylic': 'Acrylic painting',
+    'pencil drawing': 'Pencil drawing',
+    'charcoal': 'Charcoal drawing',
+    'ink drawing': 'Ink drawing',
+    'pastel': 'Pastel artwork',
+    
+    // Illustration Types
+    'line art': 'Line art illustration',
+    'technical drawing': 'Technical illustration',
+    'architectural drawing': 'Architectural illustration',
+    'scientific illustration': 'Scientific illustration',
+    'medical illustration': 'Medical illustration',
+    'botanical illustration': 'Botanical illustration',
+    
+    // Animation & Cartoon Styles
+    'cartoon': 'Cartoon illustration',
+    'animated cartoon': 'Animated cartoon style',
+    'animation': 'Animation-style illustration',
+    'disney': 'Disney-style animation',
+    'pixar': 'Pixar-style 3D animation',
+    'anime': 'Anime illustration',
+    'manga': 'Manga-style artwork',
+    'comic': 'Comic book illustration',
+    'graphic novel': 'Graphic novel style',
+    
+    // Photography Styles
+    'photograph': 'Photograph',
+    'portrait photography': 'Portrait photograph',
+    'landscape photography': 'Landscape photograph',
+    'macro photography': 'Macro photograph',
+    'street photography': 'Street photograph',
+    'documentary': 'Documentary photograph',
+    
+    // 3D & Rendered Styles
+    '3d render': '3D rendered illustration',
+    '3d modeling': '3D model visualization',
+    'cgi': 'CGI illustration',
+    'rendered': '3D rendered artwork',
+    
+    // Artistic Movements & Styles
+    'abstract': 'Abstract artwork',
+    'surreal': 'Surrealist artwork',
+    'impressionist': 'Impressionist painting',
+    'expressionist': 'Expressionist artwork',
+    'cubist': 'Cubist artwork',
+    'pop art': 'Pop art illustration',
+    'art nouveau': 'Art Nouveau style',
+    'art deco': 'Art Deco design',
+    
+    // Design Categories
+    'infographic': 'Infographic design',
+    'logo design': 'Logo design',
+    'poster': 'Poster design',
+    'banner': 'Banner design',
+    'icon': 'Icon design',
+    'user interface': 'UI design',
+    'web design': 'Web design',
+    'graphic design': 'Graphic design',
+    
+    // Vintage & Historical
+    'vintage': 'Vintage-style illustration',
+    'retro': 'Retro-style design',
+    'art deco': 'Art Deco design',
+    'victorian': 'Victorian-style artwork',
+    'medieval': 'Medieval-style illustration',
+    
+    // Textures & Techniques
+    'grunge': 'Grunge-style artwork',
+    'distressed': 'Distressed design',
+    'textured': 'Textured illustration',
+    'gradient': 'Gradient design',
+    'monochrome': 'Monochrome artwork',
+    'silhouette': 'Silhouette illustration'
   };
 
+  // Priority-based detection (more specific matches first)
+  const priorityOrder = [
+    'flat design', 'vector art', 'digital illustration', 'watercolor', 'oil painting',
+    'anime', 'manga', 'cartoon', 'animation', 'comic', '3d render', 'abstract',
+    'minimalism', 'geometric', 'line art', 'infographic', 'logo design',
+    'vintage', 'retro', 'photograph', 'portrait photography'
+  ];
+
+  for (const keyword of priorityOrder) {
+    if (labels.some(label => label.includes(keyword))) {
+      return styleMap[keyword];
+    }
+  }
+
+  // Fallback detection for remaining styles
   for (const [keyword, style] of Object.entries(styleMap)) {
     if (labels.some(label => label.includes(keyword))) {
       return style;
@@ -353,7 +442,24 @@ function generateCaption(labels, objects, style, analysis, extraInfo = {}) {
   );
   
   const artElements = allElements.filter(el =>
-    ['illustration', 'drawing', 'painting', 'art', 'design', 'graphic', 'pattern', 'texture', 'abstract', 'creative', 'artistic', 'vector', 'flat', 'modern'].some(a => el.includes(a))
+    [
+      // Digital Art Styles
+      'flat design', 'vector', 'digital art', 'digital illustration', 'modern design', 'minimalist', 'geometric',
+      // Traditional Art
+      'watercolor', 'oil painting', 'acrylic', 'pencil drawing', 'charcoal', 'ink', 'pastel',
+      // Illustration Types
+      'line art', 'technical drawing', 'architectural', 'scientific illustration', 'botanical',
+      // Animation & Cartoon
+      'cartoon', 'animation', 'anime', 'manga', 'comic', 'graphic novel',
+      // 3D & Rendered
+      '3d render', 'cgi', 'rendered',
+      // Artistic Movements
+      'abstract', 'surreal', 'impressionist', 'expressionist', 'cubist', 'pop art', 'art nouveau', 'art deco',
+      // Design Categories
+      'infographic', 'logo', 'poster', 'banner', 'icon', 'graphic design',
+      // General terms (keep these for fallback)
+      'illustration', 'drawing', 'painting', 'art', 'design', 'graphic', 'artistic', 'creative'
+    ].some(a => el.includes(a))
   );
   
   const emotions = allElements.filter(el =>
