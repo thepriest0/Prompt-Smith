@@ -38,6 +38,30 @@ const AppContent: React.FC = () => {
 
   const [currentState, setCurrentState] = useState<AppState>(getCurrentStateFromURL());
 
+  // IMMEDIATE OAuth success check - runs as soon as component mounts
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get('auth');
+    
+    if (authSuccess === 'success') {
+      console.log('🚨 IMMEDIATE OAuth success detected!');
+      console.log('🔍 Current URL:', window.location.href);
+      console.log('🔍 Auth param:', authSuccess);
+      
+      // Clean up URL immediately
+      urlParams.delete('auth');
+      const cleanUrl = window.location.origin + window.location.pathname + 
+        (urlParams.toString() ? '?' + urlParams.toString() : '');
+      window.history.replaceState({}, '', cleanUrl);
+      
+      // Force redirect to mode selection
+      window.location.hash = '#mode-selection';
+      setTimeout(() => {
+        window.location.href = window.location.origin + '/mode-selection';
+      }, 1000);
+    }
+  }, []);
+
   // Listen for browser back/forward navigation
   useEffect(() => {
     const handlePopState = () => {
@@ -172,18 +196,6 @@ const AppContent: React.FC = () => {
     navigateTo('modeSelection');
   };
 
-  // If user is logged in, show mode selection by default (but not during OAuth flow)
-  React.useEffect(() => {
-    // Don't auto-redirect if we're processing an OAuth callback
-    const urlParams = new URLSearchParams(window.location.search);
-    const isOAuthCallback = urlParams.has('auth');
-    
-    if (user && currentState === 'landing' && !isOAuthCallback && !isLoading) {
-      console.log('🔄 Auto-redirecting logged-in user to mode selection');
-      navigateTo('modeSelection', null, true);
-    }
-  }, [user, currentState, navigateTo, isLoading]);
-
   // If user logs out, redirect to landing page
   React.useEffect(() => {
     if (!user && currentState !== 'landing') {
@@ -192,6 +204,27 @@ const AppContent: React.FC = () => {
     }
   }, [user, currentState, navigateTo]);
 
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Redirect authenticated users away from landing page
+  if (user && currentState === 'landing') {
+    // Force redirect using navigateTo
+    setTimeout(() => navigateTo('modeSelection', null, true), 100);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 flex items-center justify-center">
+        <div className="text-white text-xl">Redirecting...</div>
+      </div>
+    );
+  }
+
+  // Show landing page only for unauthenticated users
   if (!user && currentState === 'landing') {
     return <LandingPage />;
   }
