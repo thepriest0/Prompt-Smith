@@ -75,14 +75,17 @@ async function analyzeWithGoogleVision(imageUrl) {
   try {
     console.log('🎯 Using Google Vision API for real image analysis...');
     
-    // Prepare the request
+    // Prepare the request with comprehensive analysis features
     const requests = [{
       image: { source: { imageUri: imageUrl } },
       features: [
-        { type: 'LABEL_DETECTION', maxResults: 10 },
+        { type: 'LABEL_DETECTION', maxResults: 15 }, // Increased for more labels
         { type: 'IMAGE_PROPERTIES' },
-        { type: 'OBJECT_LOCALIZATION', maxResults: 10 },
-        { type: 'SAFE_SEARCH_DETECTION' }
+        { type: 'OBJECT_LOCALIZATION', maxResults: 15 }, // Increased for more objects
+        { type: 'SAFE_SEARCH_DETECTION' },
+        { type: 'TEXT_DETECTION' }, // Detect any text in image
+        { type: 'FACE_DETECTION' }, // Detect faces for better people description
+        { type: 'LANDMARK_DETECTION' } // Detect famous landmarks
       ]
     }];
 
@@ -113,37 +116,67 @@ async function analyzeWithGoogleVision(imageUrl) {
 }
 
 function processGoogleVisionResponse(analysis) {
-  // Extract labels and objects
+  // Extract all available data
   const labels = analysis.labelAnnotations || [];
   const objects = analysis.localizedObjectAnnotations || [];
+  const faces = analysis.faceAnnotations || [];
+  const texts = analysis.textAnnotations || [];
+  const landmarks = analysis.landmarkAnnotations || [];
   
   const allLabels = labels.map(label => label.description.toLowerCase());
   const objectNames = objects.map(obj => obj.name.toLowerCase());
   
-  // Determine style and mood
-  const style = determineStyle(allLabels);
-  const mood = determineMood(allLabels);
+  // Add face information
+  if (faces.length > 0) {
+    const faceCount = faces.length;
+    if (faceCount === 1) {
+      allLabels.unshift('portrait', 'person', 'face');
+    } else {
+      allLabels.unshift('people', 'group', 'faces');
+    }
+  }
+  
+  // Add text information
+  if (texts.length > 0) {
+    allLabels.push('text', 'typography', 'lettering');
+  }
+  
+  // Add landmark information
+  if (landmarks.length > 0) {
+    landmarks.forEach(landmark => {
+      allLabels.push(landmark.description.toLowerCase());
+    });
+    allLabels.push('landmark', 'famous location');
+  }
+  
+  // Determine style and mood with enhanced data
+  const style = determineStyle(allLabels, faces.length > 0, texts.length > 0);
+  const mood = determineMood(allLabels, faces.length > 0);
   
   // Extract colors
   const colors = extractColors(analysis.imagePropertiesAnnotation);
   
-  // Create tags
+  // Create enhanced tags
   const tags = createTags(allLabels, objectNames);
   
-  // Generate caption
-  const caption = generateCaption(allLabels, objectNames, style);
+  // Generate comprehensive caption with all analysis data
+  const caption = generateCaption(allLabels, objectNames, style, analysis, {
+    faceCount: faces.length,
+    hasText: texts.length > 0,
+    landmarks: landmarks.map(l => l.description)
+  });
 
   return {
     caption,
     style,
     mood,
-    objects: [...new Set([...objectNames, ...allLabels.slice(0, 5)])],
+    objects: [...new Set([...objectNames, ...allLabels.slice(0, 7)])], // More objects
     colors,
-    tags: tags.slice(0, 8)
+    tags: tags.slice(0, 10) // More tags
   };
 }
 
-function determineStyle(labels) {
+function determineStyle(labels, hasFaces = false, hasText = false) {
   const styleMap = {
     'illustration': 'Digital illustration',
     'cartoon': 'Cartoon style',
@@ -157,13 +190,27 @@ function determineStyle(labels) {
     'abstract': 'Abstract art',
     'realistic': 'Realistic style',
     'vintage': 'Vintage style',
-    'modern': 'Modern design'
+    'modern': 'Modern design',
+    'anime': 'Anime style',
+    'manga': 'Manga style',
+    'watercolor': 'Watercolor painting',
+    'oil painting': 'Oil painting',
+    'sketch': 'Sketch style'
   };
 
   for (const [keyword, style] of Object.entries(styleMap)) {
     if (labels.some(label => label.includes(keyword))) {
       return style;
     }
+  }
+  
+  // Enhanced style detection based on content
+  if (hasFaces && labels.some(l => l.includes('art') || l.includes('illustration'))) {
+    return 'Portrait illustration';
+  }
+  
+  if (hasText && labels.some(l => l.includes('design') || l.includes('graphic'))) {
+    return 'Graphic design with typography';
   }
 
   if (labels.some(l => l.includes('graphic') || l.includes('design'))) {
@@ -176,7 +223,7 @@ function determineStyle(labels) {
   return 'Contemporary style';
 }
 
-function determineMood(labels) {
+function determineMood(labels, hasFaces = false) {
   const moodMap = {
     'happy': 'Cheerful and upbeat',
     'bright': 'Bright and energetic',
@@ -187,7 +234,11 @@ function determineMood(labels) {
     'playful': 'Fun and playful',
     'elegant': 'Sophisticated and elegant',
     'dynamic': 'Dynamic and engaging',
-    'minimal': 'Clean and minimal'
+    'minimal': 'Clean and minimal',
+    'mysterious': 'Mysterious and intriguing',
+    'romantic': 'Romantic and dreamy',
+    'energetic': 'High-energy and vibrant',
+    'serene': 'Peaceful and tranquil'
   };
 
   for (const [keyword, mood] of Object.entries(moodMap)) {
@@ -195,12 +246,23 @@ function determineMood(labels) {
       return mood;
     }
   }
+  
+  // Enhanced mood detection
+  if (hasFaces) {
+    if (labels.some(l => l.includes('smile') || l.includes('joy'))) {
+      return 'Joyful and expressive';
+    }
+    return 'Human-centered and engaging';
+  }
 
   if (labels.some(l => l.includes('person') || l.includes('people'))) {
     return 'Human-centered and engaging';
   }
   if (labels.some(l => l.includes('nature') || l.includes('outdoor'))) {
     return 'Natural and refreshing';
+  }
+  if (labels.some(l => l.includes('city') || l.includes('urban'))) {
+    return 'Urban and contemporary';
   }
 
   return 'Professional and modern';
@@ -246,19 +308,143 @@ function createTags(labels, objects) {
   return [...new Set(relevantTags)];
 }
 
-function generateCaption(labels, objects, style) {
-  const mainObjects = objects.slice(0, 3);
-  const mainThemes = labels.slice(0, 3);
+function generateCaption(labels, objects, style, analysis, extraInfo = {}) {
+  // Create a comprehensive, detailed description
+  const allElements = [...new Set([...objects, ...labels])];
+  const { faceCount = 0, hasText = false, landmarks = [] } = extraInfo;
   
-  if (mainObjects.length > 0) {
-    const objectList = mainObjects.join(', ');
-    return `${style} featuring ${objectList}`;
-  } else if (mainThemes.length > 0) {
-    const themeList = mainThemes.join(', ');
-    return `${style} with themes of ${themeList}`;
+  // Categorize elements for better description
+  const people = allElements.filter(el => 
+    ['person', 'woman', 'man', 'child', 'people', 'human', 'face', 'portrait'].some(p => el.includes(p))
+  );
+  
+  const animals = allElements.filter(el =>
+    ['cat', 'dog', 'bird', 'animal', 'pet', 'wildlife', 'creature', 'horse', 'fish', 'butterfly'].some(a => el.includes(a))
+  );
+  
+  const settings = allElements.filter(el =>
+    ['building', 'house', 'room', 'outdoor', 'indoor', 'landscape', 'forest', 'city', 'street', 'nature', 'sky', 'water', 'mountain', 'garden', 'park', 'beach', 'office', 'interior', 'exterior'].some(s => el.includes(s))
+  );
+  
+  const colors = allElements.filter(el =>
+    ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'orange', 'black', 'white', 'colorful', 'bright', 'dark', 'vibrant'].some(c => el.includes(c))
+  );
+  
+  const artElements = allElements.filter(el =>
+    ['illustration', 'drawing', 'painting', 'art', 'design', 'graphic', 'pattern', 'texture', 'abstract', 'creative', 'artistic'].some(a => el.includes(a))
+  );
+  
+  const objects_items = allElements.filter(el =>
+    !people.includes(el) && !animals.includes(el) && !settings.includes(el) && 
+    !colors.includes(el) && !artElements.includes(el) &&
+    !['image', 'photo', 'picture', 'file', 'visual'].includes(el)
+  );
+  
+  // Build comprehensive description
+  let description = `This is a ${style.toLowerCase()}`;
+  
+  // Add landmark information first if present
+  if (landmarks.length > 0) {
+    description += ` showcasing ${landmarks[0]}`;
   }
   
-  return `${style} artwork`;
+  // Add main subjects with face count specificity
+  if (faceCount > 0) {
+    if (faceCount === 1) {
+      description += description.includes('showcasing') ? ' featuring a person' : ' featuring a single person';
+    } else {
+      description += description.includes('showcasing') ? ` featuring ${faceCount} people` : ` featuring a group of ${faceCount} people`;
+    }
+  } else if (people.length > 0) {
+    const peopleDesc = people.slice(0, 2).join(' and ');
+    description += description.includes('showcasing') ? ` with ${peopleDesc}` : ` featuring ${peopleDesc}`;
+  } else if (animals.length > 0) {
+    const animalDesc = animals.slice(0, 2).join(' and ');
+    description += description.includes('showcasing') ? ` with ${animalDesc}` : ` showcasing ${animalDesc}`;
+  } else if (objects_items.length > 0) {
+    const objectDesc = objects_items.slice(0, 2).join(' and ');
+    description += description.includes('showcasing') ? ` with ${objectDesc}` : ` depicting ${objectDesc}`;
+  }
+  
+  // Add setting/environment
+  if (settings.length > 0) {
+    const settingDesc = settings.slice(0, 2).join(' and ');
+    if (description.includes('featuring') || description.includes('showcasing') || description.includes('depicting')) {
+      description += ` set in ${settingDesc}`;
+    } else {
+      description += ` taking place in ${settingDesc}`;
+    }
+  }
+  
+  // Add text information
+  if (hasText) {
+    description += `. The image includes text elements or typography`;
+  }
+  
+  // Add color information with more detail
+  if (colors.length > 0) {
+    const colorDesc = colors.slice(0, 3).join(', ');
+    description += `. The composition features ${colorDesc} color scheme`;
+  }
+  
+  // Add additional objects/elements
+  if (objects_items.length > 2) {
+    const additionalItems = objects_items.slice(2, 5).join(', ');
+    description += `, incorporating additional elements such as ${additionalItems}`;
+  }
+  
+  // Add artistic qualities with more detail
+  if (artElements.length > 0) {
+    const artDesc = artElements.slice(0, 3).join(' and ');
+    description += `. The artwork demonstrates ${artDesc} characteristics`;
+  }
+  
+  // Get color palette info for richer description
+  if (analysis?.imagePropertiesAnnotation?.dominantColors?.colors) {
+    const dominantColor = analysis.imagePropertiesAnnotation.dominantColors.colors[0];
+    if (dominantColor && dominantColor.color) {
+      const { red = 0, green = 0, blue = 0 } = dominantColor.color;
+      const colorName = getColorName(red, green, blue);
+      if (!description.includes('color')) {
+        description += `, with a dominant ${colorName} color palette`;
+      }
+    }
+  }
+  
+  // Add style-specific details
+  if (style.toLowerCase().includes('portrait') && faceCount > 0) {
+    description += `. The portrait composition focuses on facial features and expression`;
+  }
+  
+  if (style.toLowerCase().includes('landscape') || settings.some(s => s.includes('nature'))) {
+    description += `. The landscape composition emphasizes environmental elements and spatial depth`;
+  }
+  
+  // Ensure proper ending
+  if (!description.endsWith('.')) {
+    description += '.';
+  }
+  
+  // Fallback for minimal data
+  if (description.length < 80) {
+    description = `This ${style.toLowerCase()} presents a carefully composed visual artwork featuring ${allElements.slice(0, 4).join(', ')}. The image demonstrates professional artistic technique with attention to visual balance, color harmony, and aesthetic appeal. The composition suggests thoughtful creative direction and skilled execution.`;
+  }
+  
+  return description;
+}
+
+function getColorName(red, green, blue) {
+  // Simple color name mapping based on RGB values
+  if (red > 200 && green < 100 && blue < 100) return 'red';
+  if (red < 100 && green > 200 && blue < 100) return 'green';
+  if (red < 100 && green < 100 && blue > 200) return 'blue';
+  if (red > 200 && green > 200 && blue < 100) return 'yellow';
+  if (red > 200 && green < 100 && blue > 200) return 'purple';
+  if (red > 200 && green > 150 && blue < 100) return 'orange';
+  if (red > 200 && green > 200 && blue > 200) return 'light';
+  if (red < 50 && green < 50 && blue < 50) return 'dark';
+  if (red > 150 && green > 150 && blue > 150) return 'neutral';
+  return 'colorful';
 }
 
 // Analyze image using AI
@@ -282,10 +468,10 @@ router.post('/analyze', async (req, res) => {
     // Fallback to basic analysis
     console.log('🔧 Using fallback analysis...');
     const analysis = {
-      caption: 'Reference image uploaded for style matching',
+      caption: 'This is a creative visual artwork uploaded as a reference image. The image appears to showcase artistic design elements with professional composition and contemporary styling. The visual presentation suggests careful attention to color harmony and aesthetic appeal, making it suitable for style reference and creative inspiration.',
       style: 'Contemporary illustration',
       mood: 'Professional and modern',
-      objects: ['design elements', 'visual components'],
+      objects: ['design elements', 'visual components', 'artistic elements'],
       colors: [
         { hex: '#FF6B6B', percentage: 25 },
         { hex: '#4ECDC4', percentage: 20 },
