@@ -383,14 +383,42 @@ export default function PromptGenerator({ mode, onGenerate, onBack }: PromptGene
       
       // Final fallback in case of any errors
       const fallbackPrompt = `${customPrompt}, ${selectedAspectRatio} aspect ratio`;
-      const recommendedTool = getSmartToolRecommendation(mode, selectedStyles, customPrompt);
-      const instructions = getToolInstructions(recommendedTool, selectedAspectRatio, selectedColors);
       
       console.log('🔧 Using error fallback generation');
       onGenerate({
         prompt: fallbackPrompt,
-        tool: recommendedTool,
-        instructions: instructions,
+        primaryTool: {
+          name: 'ChatGPT with DALL-E 3',
+          reasoning: 'Fallback recommendation - reliable free option',
+          cost: 'Free',
+          strengths: ['Accessible', 'Good quality', 'Easy to use']
+        },
+        alternativeTools: [
+          {
+            name: 'Microsoft Copilot with DALL-E 3',
+            reasoning: 'Alternative free option with same engine',
+            cost: 'Free',
+            strengths: ['Free access', 'Microsoft integration']
+          }
+        ],
+        instructions: {
+          primaryTool: [
+            'Go to ChatGPT (chat.openai.com) - it\'s free!',
+            'Copy the generated prompt above',
+            'Paste it into the chat interface',
+            'Review and refine the generated image',
+            'Download your final result'
+          ],
+          alternatives: {
+            'Microsoft Copilot with DALL-E 3': [
+              'Go to Microsoft Copilot (copilot.microsoft.com)',
+              'Paste the prompt and request image generation',
+              'Review generated options',
+              'Download preferred result'
+            ]
+          }
+        },
+        tips: ['Try variations of the prompt for better results'],
         originalDescription: customPrompt,
         mode: mode,
         style: 'Mixed',
@@ -399,61 +427,6 @@ export default function PromptGenerator({ mode, onGenerate, onBack }: PromptGene
     } finally {
       console.log('🏁 Generation process finished');
       setIsGenerating(false);
-    }
-  };
-
-  const getSmartToolRecommendation = (mode: 'illustration' | 'image', styles: string[], description: string): string => {
-    const desc = description.toLowerCase();
-    const styleSet = new Set(styles);
-    
-    if (mode === 'illustration') {
-      if (styleSet.has('isometric') || desc.includes('technical') || desc.includes('diagram') || desc.includes('blueprint')) {
-        return 'Microsoft Copilot with DALL-E 3';
-      }
-      return 'ChatGPT with DALL-E 3';
-    } else {
-      if (styleSet.has('photorealistic') || desc.includes('photo') || desc.includes('realistic') || desc.includes('portrait')) {
-        return 'Microsoft Copilot with DALL-E 3';
-      }
-      if (styleSet.has('cinematic') || desc.includes('cinematic') || desc.includes('dramatic') || desc.includes('movie')) {
-        return 'ChatGPT with DALL-E 3';
-      }
-      if (styleSet.has('oil-painting') || styleSet.has('watercolor') || styleSet.has('anime')) {
-        return 'ChatGPT with DALL-E 3';
-      }
-      return 'Microsoft Copilot with DALL-E 3';
-    }
-  };
-
-  const getToolInstructions = (tool: string, aspectRatio: string, colors: string[]): string[] => {
-    const colorGuidance = colors.length > 0 ? `Include color preferences: ${colors.join(', ')}` : 'Let AI choose appropriate colors';
-    
-    switch (tool) {
-      case 'ChatGPT with DALL-E 3':
-        return [
-          'Go to ChatGPT (chat.openai.com) - it\'s free with account!',
-          'Paste the prompt and ask DALL-E 3 to generate the image',
-          `Specify "${aspectRatio} aspect ratio" in your request`,
-          colorGuidance,
-          'Download the result and refine with follow-up prompts if needed'
-        ];
-        
-      case 'Microsoft Copilot with DALL-E 3':
-        return [
-          'Go to Microsoft Copilot (copilot.microsoft.com) - it\'s free!',
-          'Paste the prompt and request image generation',
-          `Ask for "${aspectRatio} aspect ratio" in your message`,
-          colorGuidance,
-          'Generate multiple variations and choose the best result'
-        ];
-        
-      default:
-        return [
-          'Copy the prompt to your preferred AI image generator',
-          `Set aspect ratio to ${aspectRatio}`,
-          colorGuidance,
-          'Generate and iterate as needed'
-        ];
     }
   };
 

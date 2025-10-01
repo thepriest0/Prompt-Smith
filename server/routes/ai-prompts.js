@@ -94,52 +94,106 @@ class GitHubModelService {
   }
 
   buildSystemPrompt(mode) {
-    const basePrompt = `You are a professional prompt engineer with expertise in AI image generation. Create highly effective, detailed prompts that produce exceptional results.
+    const basePrompt = `You are a professional prompt engineer and AI tool expert with deep knowledge of all current AI image generation platforms, their capabilities, pricing, and optimal use cases.
 
 CRITICAL: Always respond with valid JSON in this exact format:
 {
   "prompt": "detailed prompt text here",
-  "tool": "recommended AI tool name", 
-  "instructions": ["step 1", "step 2", "step 3", "step 4", "step 5"]
+  "primaryTool": {
+    "name": "Best AI tool name",
+    "reasoning": "Why this tool is optimal for this specific request",
+    "cost": "Free/Paid/Credits",
+    "strengths": ["strength1", "strength2", "strength3"]
+  },
+  "alternativeTools": [
+    {
+      "name": "Alternative tool name",
+      "reasoning": "Why this is a good alternative",
+      "cost": "Free/Paid/Credits",
+      "strengths": ["strength1", "strength2"]
+    },
+    {
+      "name": "Another alternative",
+      "reasoning": "Why this could work",
+      "cost": "Free/Paid/Credits", 
+      "strengths": ["strength1", "strength2"]
+    }
+  ],
+  "instructions": {
+    "primaryTool": [
+      "Step 1: Detailed action with URLs if needed",
+      "Step 2: Specific instructions for this tool",
+      "Step 3: Platform-specific tips",
+      "Step 4: How to optimize results",
+      "Step 5: Download and refinement steps"
+    ],
+    "alternatives": {
+      "toolName1": ["step1", "step2", "step3", "step4", "step5"],
+      "toolName2": ["step1", "step2", "step3", "step4", "step5"]
+    }
+  },
+  "tips": [
+    "Advanced tip for better results",
+    "Optimization suggestion",
+    "Alternative approach if first attempt fails"
+  ]
 }
+
+IMPORTANT AI TOOL KNOWLEDGE:
+- ChatGPT with DALL-E 3: Free with account, excellent for creative/artistic styles, good prompt following
+- Microsoft Copilot with DALL-E 3: Free, same DALL-E 3 engine, good for technical/realistic work
+- Midjourney: Paid subscription, superior artistic quality, best for high-end creative work
+- Leonardo AI: Freemium, good for specific styles, fine-tuned models
+- Stable Diffusion (via Stability AI): Pay-per-use, highly customizable, technical control
+- Adobe Firefly: Integrated with Creative Suite, commercial safe, good for business use
+- Runway ML: Video + image generation, unique capabilities
+- Playground AI: Freemium, multiple model access
+- Ideogram: Free tier, excellent text generation in images
+- Flux: Open source, high quality, various platforms
+
+SELECTION CRITERIA:
+1. Match tool capabilities to specific style requirements
+2. Consider user's likely budget (prioritize free when quality is comparable)
+3. Factor in ease of use and accessibility
+4. Consider commercial usage rights if relevant
+5. Recommend 3 total options: 1 primary + 2 alternatives with different strengths
 
 Do not include any text outside of this JSON format.`;
 
     if (mode === 'illustration') {
       return basePrompt + `
 
-Create professional illustration prompts focused on:
-- Clean, minimal design aesthetics
-- Precise geometric compositions
-- Professional color schemes and contrast
-- Modern visual hierarchy
-- Scalable vector-style artwork
-- Interface elements and iconography
+FOCUS: Professional illustration creation including:
+- Vector graphics, flat design, minimal aesthetics
+- Technical diagrams, infographics, UI elements
+- Character design, concept art, digital paintings
+- Logo design, branding materials
+- Scientific and medical illustrations
+- Architectural and engineering drawings
 
-TOOL RECOMMENDATION LOGIC FOR ILLUSTRATIONS:
-- For flat vector, minimal, geometric, material design styles: Recommend "ChatGPT with DALL-E 3" (FREE)
-- For 3D renders, complex gradients, glassmorphism: Recommend "Midjourney" (PAID but superior)
-- For hand-drawn, sketchy, organic styles: Recommend "ChatGPT with DALL-E 3" (FREE)
-- For technical diagrams, isometric: Recommend "Microsoft Copilot with DALL-E 3" (FREE)
-
-Always prioritize free tools unless the style specifically requires advanced 3D rendering or complex artistic effects.`;
+EVALUATION PRIORITIES FOR ILLUSTRATIONS:
+1. Style precision and control
+2. Vector-friendly output quality
+3. Text rendering capabilities (if needed)
+4. Scalability and resolution
+5. Iteration and refinement ease`;
     } else {
       return basePrompt + `
 
-Create professional photography prompts focused on:
-- Realistic lighting and composition
-- Professional camera settings and techniques
-- Natural environments and subjects
-- Photographic style specifications
-- Color grading and post-processing details
+FOCUS: Realistic photography and photo-style generation including:
+- Portrait photography, lifestyle shots
+- Product photography, commercial imagery
+- Landscape and nature photography
+- Fashion and editorial photography
+- Documentary and journalistic style
+- Architectural and interior photography
 
-TOOL RECOMMENDATION LOGIC FOR PHOTOGRAPHY:
-- For portraits, lifestyle, nature: Recommend "ChatGPT with DALL-E 3" (FREE)
-- For high-fashion, commercial, cinematic: Recommend "Midjourney" (PAID but superior)
-- For product photography, studio work: Recommend "Microsoft Copilot with DALL-E 3" (FREE)
-- For artistic, fine-art photography: Recommend "Midjourney" (PAID but superior)
-
-Always prioritize free tools unless the style specifically requires advanced artistic rendering or commercial-grade output.`;
+EVALUATION PRIORITIES FOR PHOTOGRAPHY:
+1. Photorealistic quality and lighting
+2. Composition and camera angle control
+3. Skin tone and human feature accuracy
+4. Environmental and atmospheric effects
+5. Commercial usage rights and quality`;
     }
   }
 
@@ -219,18 +273,60 @@ Focus on technical accuracy and professional results rather than overly descript
       prompt += ', photorealistic, professional photography, high quality, detailed';
     }
     
-    // Enhanced fallback with better tool recommendations
-    const recommendedTool = mode === 'illustration' ? 'ChatGPT with DALL-E 3' : 'Microsoft Copilot with DALL-E 3';
+    // Enhanced fallback with AI-style structure but basic logic
+    const primaryTool = mode === 'illustration' ? 'ChatGPT with DALL-E 3' : 'Microsoft Copilot with DALL-E 3';
     
     return {
       prompt: prompt,
-      tool: recommendedTool,
-      instructions: [
-        `Open ${recommendedTool} in your browser`,
-        'Copy the generated prompt above',
-        'Paste it into the chat interface',
-        'Review and refine the generated image',
-        'Download your final result'
+      primaryTool: {
+        name: primaryTool,
+        reasoning: "Fallback recommendation - reliable free option",
+        cost: "Free",
+        strengths: ["Accessible", "Good quality", "Easy to use"]
+      },
+      alternativeTools: [
+        {
+          name: "Midjourney",
+          reasoning: "Higher artistic quality for professional work",
+          cost: "Paid",
+          strengths: ["Superior quality", "Artistic excellence"]
+        },
+        {
+          name: "Leonardo AI", 
+          reasoning: "Good alternative with multiple model options",
+          cost: "Freemium",
+          strengths: ["Model variety", "Fine-tuned options"]
+        }
+      ],
+      instructions: {
+        primaryTool: [
+          `Open ${primaryTool.includes('ChatGPT') ? 'ChatGPT (chat.openai.com)' : 'Microsoft Copilot (copilot.microsoft.com)'} - it's free!`,
+          'Copy the generated prompt above',
+          'Paste it into the chat interface',
+          `Specify "${aspectRatio} aspect ratio" in your request`,
+          'Download and refine the result as needed'
+        ],
+        alternatives: {
+          "Midjourney": [
+            "Subscribe to Midjourney (midjourney.com)",
+            "Join their Discord server",
+            "Use /imagine command with the prompt",
+            "Specify aspect ratio with --ar parameter",
+            "Upscale and download your favorite result"
+          ],
+          "Leonardo AI": [
+            "Create account at Leonardo.ai",
+            "Select appropriate model for your style",
+            "Input the prompt in the generation interface", 
+            "Set aspect ratio and other parameters",
+            "Generate and download results"
+          ]
+        }
+      },
+      tips: [
+        "Try multiple variations of the prompt for better results",
+        "Experiment with different aspect ratios",
+        "Add style-specific keywords if results aren't matching expectations"
       ]
     };
   }
