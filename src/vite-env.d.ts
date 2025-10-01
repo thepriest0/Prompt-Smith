@@ -1,4 +1,27 @@
 /// <reference types="vite/client" />
+/// <reference types="react" />
+
+// React DOM Client types
+declare module 'react-dom/client' {
+  export function createRoot(container: Element | DocumentFragment): {
+    render(children: React.ReactNode): void;
+    unmount(): void;
+  };
+  export function hydrateRoot(container: Element | Document, initialChildren: React.ReactNode): {
+    render(children: React.ReactNode): void;
+    unmount(): void;
+  };
+}
+
+// Vite plugin types
+declare module '@vitejs/plugin-react' {
+  export default function react(options?: Record<string, unknown>): Record<string, unknown>;
+}
+
+declare module 'vite' {
+  export function defineConfig(config: Record<string, unknown>): Record<string, unknown>;
+  export * from 'vite';
+}
 
 interface ImportMetaEnv {
   readonly MODE: string;
