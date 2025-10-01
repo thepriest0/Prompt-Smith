@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 
 // Load environment variables FIRST
 dotenv.config();
@@ -56,7 +57,24 @@ app.use(cors({
 }));
 
 // Session configuration
+const PgSession = connectPgSimple(session);
+
+// Configure session store based on environment
+let sessionStore;
+if (process.env.NODE_ENV === 'production') {
+  // Use PostgreSQL session store in production
+  sessionStore = new PgSession({
+    conString: process.env.XATA_DATABASE_URL,
+    tableName: 'session', // Will create this table automatically
+    createTableIfMissing: true
+  });
+} else {
+  // Use memory store in development (with warning suppression)
+  sessionStore = new session.MemoryStore();
+}
+
 app.use(session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'your-super-secret-session-key-here',
   resave: false,
   saveUninitialized: false,
