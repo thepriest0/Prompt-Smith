@@ -117,17 +117,27 @@ async function analyzeWithGoogleVision(imageUrl) {
 }
 
 function processGoogleVisionResponse(analysis) {
-  // Extract all available data
+  // Extract all available data with proper validation
   const labels = analysis.labelAnnotations || [];
   const objects = analysis.localizedObjectAnnotations || [];
   const faces = analysis.faceAnnotations || [];
   const texts = analysis.textAnnotations || [];
   const landmarks = analysis.landmarkAnnotations || [];
   
-  const allLabels = labels.map(label => label.description.toLowerCase());
+  // Filter out generic/incorrect labels that don't add value
+  const filteredLabels = labels
+    .map(label => label.description.toLowerCase())
+    .filter(label => 
+      !['clip art', 'graphics', 'animated cartoon', 'animation', 'happiness', 'file', 'visual', 'picture', 'image', 'photo'].includes(label) &&
+      !label.includes('screenshot') &&
+      !label.includes('font') &&
+      label.length > 2
+    );
+  
+  const allLabels = filteredLabels;
   const objectNames = objects.map(obj => obj.name.toLowerCase());
   
-  // Add face information
+  // Only add face information if faces are actually detected
   if (faces.length > 0) {
     const faceCount = faces.length;
     if (faceCount === 1) {
@@ -137,12 +147,15 @@ function processGoogleVisionResponse(analysis) {
     }
   }
   
-  // Add text information
-  if (texts.length > 0) {
-    allLabels.push('text', 'typography', 'lettering');
-  }
+  // Only add text information if actual text is detected and contains meaningful content
+  const hasActualText = texts.length > 0 && texts.some(text => 
+    text.description && 
+    text.description.trim().length > 0 && 
+    text.description.trim() !== ' ' &&
+    !text.description.match(/^[\s\n\r]*$/)
+  );
   
-  // Add landmark information
+  // Only add landmark information if landmarks are actually detected
   if (landmarks.length > 0) {
     landmarks.forEach(landmark => {
       allLabels.push(landmark.description.toLowerCase());
@@ -151,7 +164,7 @@ function processGoogleVisionResponse(analysis) {
   }
   
   // Determine style and mood with enhanced data
-  const style = determineStyle(allLabels, faces.length > 0, texts.length > 0);
+  const style = determineStyle(allLabels, faces.length > 0, hasActualText);
   const mood = determineMood(allLabels, faces.length > 0);
   
   // Extract colors
@@ -163,7 +176,7 @@ function processGoogleVisionResponse(analysis) {
   // Generate comprehensive caption with all analysis data
   const caption = generateCaption(allLabels, objectNames, style, analysis, {
     faceCount: faces.length,
-    hasText: texts.length > 0,
+    hasText: hasActualText,
     landmarks: landmarks.map(l => l.description)
   });
 
@@ -446,14 +459,25 @@ function generateCaption(labels, objects, style, analysis, extraInfo = {}) {
     }
   }
   
-  // Enhanced color analysis
-  if (colors.length > 1) {
-    description += `. The composition features a vibrant color palette`;
-    if (analysis?.imagePropertiesAnnotation?.dominantColors?.colors?.length > 1) {
-      description += ` that contrasts beautifully with the varied, warm colors of the subjects`;
+  // Enhanced color analysis - only mention colors that are actually prominent
+  if (analysis?.imagePropertiesAnnotation?.dominantColors?.colors?.length > 1) {
+    const dominantColors = analysis.imagePropertiesAnnotation.dominantColors.colors.slice(0, 3);
+    const colorNames = dominantColors.map(colorData => {
+      const { red = 0, green = 0, blue = 0 } = colorData.color || {};
+      return getColorName(red, green, blue);
+    }).filter(color => color && color !== 'neutral');
+    
+    if (colorNames.length > 1) {
+      description += `. The composition features a ${colorNames.join(' and ')} color palette`;
+    } else if (colorNames.length === 1) {
+      description += `. The image emphasizes ${colorNames[0]} tones throughout the composition`;
     }
-  } else if (colors.length === 1) {
-    description += `. The image emphasizes ${colors[0]} tones throughout the composition`;
+  } else if (colors.length > 0 && !colors.includes('colorful')) {
+    // Only mention detected colors if they're specific, not generic
+    const specificColors = colors.filter(c => !['colorful', 'bright', 'dark'].includes(c));
+    if (specificColors.length > 0) {
+      description += `. The image emphasizes ${specificColors[0]} tones throughout the composition`;
+    }
   }
   
   // Add text information with context
