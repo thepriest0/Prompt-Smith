@@ -63,20 +63,17 @@ const PgSession = connectPgSimple(session);
 let sessionStore;
 if (process.env.NODE_ENV === 'production' && process.env.XATA_DATABASE_URL) {
   try {
-    // Use PostgreSQL session store in production
-    sessionStore = new PgSession({
-      conString: process.env.XATA_DATABASE_URL,
-      tableName: 'session', // Will create this table automatically
-      createTableIfMissing: true
-    });
-    console.log('✅ Using PostgreSQL session store');
+    // For now, use memory store in production due to Xata connection issues
+    // TODO: Set up a proper Redis or MongoDB session store for production scaling
+    console.log('⚠️  Using memory store in production (temporary)');
+    sessionStore = new session.MemoryStore();
   } catch (error) {
-    console.error('❌ Failed to initialize PostgreSQL session store:', error);
+    console.error('❌ Failed to initialize session store:', error);
     console.log('🔄 Falling back to memory store');
     sessionStore = new session.MemoryStore();
   }
 } else {
-  // Use memory store in development or if no database URL
+  // Use memory store in development
   sessionStore = new session.MemoryStore();
   console.log('📝 Using memory session store');
 }
@@ -88,7 +85,9 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
 
