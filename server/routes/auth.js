@@ -12,13 +12,14 @@ router.get('/google',
 
 router.get('/google/callback', 
   (req, res, next) => {
+    // Use passport authenticate but with session: false to avoid session requirement
     passport.authenticate('google', { 
+      session: false, // This is the key - disable session
       failureRedirect: '/login',
       failureMessage: true 
     })(req, res, (err) => {
       if (err) {
         console.error('❌ Passport authentication error:', err);
-        // Still try to redirect even if there's a session error
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         return res.redirect(`${frontendUrl}/?error=auth_failed`);
       }
@@ -56,9 +57,9 @@ router.get('/google/callback',
       res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax', // Changed from 'none' to 'lax'
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+        path: '/'
       });
       
       // Successful authentication, redirect to frontend with a special flag
@@ -97,7 +98,8 @@ router.post('/logout', (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+    path: '/'
   });
   
   console.log('✅ JWT token cleared, user logged out');

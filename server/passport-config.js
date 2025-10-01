@@ -4,7 +4,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { getXataClient } from './database-init.js';
 
-// Configure Google OAuth strategy
+// Configure Google OAuth strategy for JWT (no sessions)
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -41,6 +41,8 @@ passport.use(new GoogleStrategy({
     }
     
     console.log('✅ User authenticated successfully:', user.email);
+    
+    // Return user data directly (no session storage needed)
     return done(null, {
       id: user.id,
       email: user.email,
